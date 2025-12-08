@@ -1,0 +1,19 @@
+# فعال‌سازی RewriteEngine
+RewriteEngine On
+
+# تنظیمات امنیتی
+<FilesMatch "\.(htaccess|htpasswd|ini|log|sh|sql)$">
+    Order Allow,Deny
+    Deny from all
+</FilesMatch>
+
+# تنظیمات PHP
+php_flag display_errors Off
+php_flag log_errors On
+
+# تنظیمات UTF-8
+AddDefaultCharset UTF-8
+
+# تنظیمات دایرکتوری
+DirectoryIndex index.php index.html
+

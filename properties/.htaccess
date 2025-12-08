@@ -1,0 +1,6 @@
+# جلوگیری از لیست شدن محتویات پوشه
+Options -Indexes
+
+# تنظیم صفحه پیش‌فرض
+DirectoryIndex list.php
+
