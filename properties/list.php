@@ -10,23 +10,60 @@ $conn = getDBConnection();
 // فیلترها
 $typeFilter = $_GET['type'] ?? '';
 $statusFilter = $_GET['status'] ?? '';
+$search = $_GET['search'] ?? '';
+$price = $_GET['price'] ?? '';
+$areaFilter = $_GET['area'] ?? '';
+$propertyTypeFilter = $_GET['property_type'] ?? '';
 
-$query = "SELECT * FROM properties WHERE user_id = {$_SESSION['user_id']}";
+$conditions = [];
+$conditions[] = 'user_id = ' . intval($_SESSION['user_id']);
+
 if ($typeFilter) {
-    // اگر type شامل کاما باشد، باید با LIKE یا FIND_IN_SET جستجو کنیم
-    // چون type می‌تواند "mortgage,rent" باشد و ما می‌خواهیم "mortgage" را پیدا کنیم
     $escapedType = $conn->real_escape_string($typeFilter);
-    $query .= " AND (type = '$escapedType' OR type LIKE '$escapedType,%' OR type LIKE '%,$escapedType' OR type LIKE '%,$escapedType,%')";
+    $conditions[] = "(type = '$escapedType' OR type LIKE '$escapedType,%' OR type LIKE '%,$escapedType' OR type LIKE '%,$escapedType,%')";
 }
 if ($statusFilter) {
-    $query .= " AND status = '" . $conn->real_escape_string($statusFilter) . "'";
+    $conditions[] = "status = '" . $conn->real_escape_string($statusFilter) . "'";
 }
-// area exact match filter
-$areaFilter = $_GET['area'] ?? '';
+if ($propertyTypeFilter) {
+    $conditions[] = "property_type = '" . $conn->real_escape_string($propertyTypeFilter) . "'";
+}
+if ($search) {
+    $esc = $conn->real_escape_string($search);
+    $conditions[] = "(title LIKE '%$esc%' OR city LIKE '%$esc%' OR address LIKE '%$esc%')";
+}
+// price filter: conditional on selected type(s)
+if ($price !== '' && is_numeric($price)) {
+    $priceInt = intval($price);
+    if ($typeFilter) {
+        $typeParts = array_map('trim', explode(',', $typeFilter));
+        $priceClauses = [];
+        foreach ($typeParts as $tp) {
+            if (in_array($tp, ['buy', 'sell'])) {
+                $priceClauses[] = 'price <= ' . $priceInt;
+            } elseif ($tp === 'mortgage') {
+                $priceClauses[] = 'mortgage_price <= ' . $priceInt;
+            } elseif ($tp === 'rent') {
+                $priceClauses[] = 'rent_price <= ' . $priceInt;
+            }
+        }
+        if (!empty($priceClauses)) {
+            $conditions[] = '(' . implode(' OR ', $priceClauses) . ')';
+        }
+    } else {
+        $conditions[] = 'price <= ' . $priceInt;
+    }
+}
 if ($areaFilter !== '' && is_numeric($areaFilter)) {
-    $query .= " AND area = " . intval($areaFilter);
+    $conditions[] = 'area = ' . intval($areaFilter);
 }
-$query .= " ORDER BY created_at DESC";
+
+$where = '';
+if (count($conditions) > 0) {
+    $where = ' WHERE ' . implode(' AND ', $conditions);
+}
+
+$query = 'SELECT * FROM properties' . $where . ' ORDER BY created_at DESC';
 
 $properties = $conn->query($query);
 
@@ -137,7 +174,7 @@ include __DIR__ . '/../includes/header.php';
     
     <!-- جدول املاک -->
     <div class="bg-white rounded-lg shadow overflow-hidden">
-        <div class="overflow-x-auto">
+        <div class="overflow-x-auto pb-[100px]">
             <table class="responsive-table min-w-full divide-y divide-gray-200">
                 <thead class="bg-gray-50">
                     <tr>

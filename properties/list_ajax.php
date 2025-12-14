@@ -36,7 +36,29 @@ if ($search) {
 }
 
 if ($price !== '' && is_numeric($price)) {
-    $conditions[] = 'price <= ' . intval($price);
+    // Apply price filter based on selected transaction type(s).
+    // If type is specified, map to the correct column(s): buy/sell -> price, mortgage -> mortgage_price, rent -> rent_price
+    $priceInt = intval($price);
+    if ($typeFilter) {
+        $typeParts = array_map('trim', explode(',', $typeFilter));
+        $priceClauses = [];
+        foreach ($typeParts as $tp) {
+            if (in_array($tp, ['buy', 'sell'])) {
+                $priceClauses[] = 'price <= ' . $priceInt;
+            } elseif ($tp === 'mortgage') {
+                $priceClauses[] = 'mortgage_price <= ' . $priceInt;
+            } elseif ($tp === 'rent') {
+                $priceClauses[] = 'rent_price <= ' . $priceInt;
+            }
+        }
+        if (!empty($priceClauses)) {
+            // combine with OR because any matching price column should include the row
+            $conditions[] = '(' . implode(' OR ', $priceClauses) . ')';
+        }
+    } else {
+        // no specific type selected: default to sale price
+        $conditions[] = 'price <= ' . $priceInt;
+    }
 }
 if ($area !== '' && is_numeric($area)) {
     // Filter exact area match as requested (not <=)
